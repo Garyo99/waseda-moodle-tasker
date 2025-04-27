@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Waseda Moodle Tasker",
+  "version": "1.0.0",
+  "description": "",
+  "permissions": ["tabs", "storage", "scripting", "activeTab"],
+  "host_permissions": ["https://wsdmoodle.waseda.jp/*"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://wsdmoodle.waseda.jp/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
