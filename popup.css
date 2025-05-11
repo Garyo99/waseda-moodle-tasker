@@ -162,7 +162,6 @@ input:focus + .slider {
   background: #e5e7eb;
 }
 
-/* soon クラスの適用 */
 .event-info.soon {
   background: #fff5f5;
   border: 1px solid #ffe5e5;
@@ -182,7 +181,6 @@ input:focus + .slider {
   gap: 8px;
 }
 
-/* アイコン自体のスペース確保 */
 .action-buttons img {
   width: 16px;
   height: 16px;
@@ -192,17 +190,14 @@ input:focus + .slider {
   transition: background 0.2s, opacity 0.3s;
 }
 
-/* チェックボタンホバー時に薄い緑背景 */
 .action-buttons img:nth-child(1):hover {
   background: #c8e6c9;
 }
 
-/* ×ボタンホバー時に薄い赤背景 */
 .action-buttons img:nth-child(2):hover {
   background: #ffcdd2;
 }
 
-/* フェードアウト用 */
 .fade-out {
   opacity: 0;
 }

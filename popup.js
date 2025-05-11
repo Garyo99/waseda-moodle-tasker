@@ -58,7 +58,6 @@ document.addEventListener("DOMContentLoaded", () => {
   autoDoneEventSetting.addEventListener("change", () => {
     chrome.storage.sync.set({ autoDoneEvent: autoDoneEventSetting.checked });
     if (!autoDoneEventSetting.checked) {
-      // 完了フィルタをリセット
       chrome.storage.sync.set({ eventStatus: [] });
       chrome.storage.sync.get({ events: [] }, (data) =>
         renderEvents(data.events)
@@ -74,7 +73,6 @@ document.addEventListener("DOMContentLoaded", () => {
     chrome.storage.sync.set({ daysSetting: v });
   });
 
-  // イベント描画
   function renderEvents(events) {
     if (!Array.isArray(events)) {
       console.error("renderEvents: events is not an array", events);
@@ -137,7 +135,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // イベント一覧クリック時のハンドリング
   eventsList.addEventListener("click", (e) => {
     const li = e.target.closest("li[data-url]");
     if (!li) return;
@@ -147,7 +144,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!m) return;
     const id = Number(m[1]);
 
-    // ボタン操作時
     if (e.target.closest(".action-buttons")) {
       const alt = e.target.getAttribute("alt");
       let status = null;
@@ -163,7 +159,6 @@ document.addEventListener("DOMContentLoaded", () => {
           ) {
             eventStatus.push({ id, status });
             chrome.storage.sync.set({ eventStatus }, () => {
-              // フェードアウトアニメーション
               li.style.transition = "opacity 0.5s";
               li.classList.add("fade-out");
               li.addEventListener("transitionend", () => li.remove(), {
@@ -176,7 +171,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // イベント情報クリック時は新しいタブで開く
     chrome.tabs.create({ url });
   });
 

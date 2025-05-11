@@ -90,7 +90,6 @@ async function extractEventsFromTab(tabId) {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "fetchEvents") {
-    // 「取得する日数」を取得してからイベントをフェッチ
     chrome.storage.sync.get({ daysSetting: 14 }, ({ daysSetting }) => {
       (async () => {
         const allEvents = [];
