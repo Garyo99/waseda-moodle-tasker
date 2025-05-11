@@ -22,7 +22,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return `${Y}/${M}/${D} ${h}:${m}:${s}`;
   }
 
-  // ストレージから初期値を読み込む
   chrome.storage.sync.get(
     {
       autoRedirect: false,
@@ -30,11 +29,11 @@ document.addEventListener("DOMContentLoaded", () => {
       events: [],
       lastUpdate: 0,
       daysSetting: 14,
-      done: [],
+      eventStatus: [],
     },
     (res) => {
       autoRedirectSetting.checked = res.autoRedirect;
-      autoDoneEventSetting.checked = res.autoDoneEvent || false;
+      autoDoneEventSetting.checked = res.autoDoneEvent;
       daysSettingInput.value = res.daysSetting;
       renderEvents(res.events);
       if (res.lastUpdate) {
@@ -44,7 +43,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   );
 
-  // メイン ⇔ 設定 の切り替え
   openSettings.addEventListener("click", () => {
     mainView.classList.add("hidden");
     settingsView.classList.remove("hidden");
@@ -54,12 +52,18 @@ document.addEventListener("DOMContentLoaded", () => {
     mainView.classList.remove("hidden");
   });
 
-  // 設定保存
   autoRedirectSetting.addEventListener("change", () => {
     chrome.storage.sync.set({ autoRedirect: autoRedirectSetting.checked });
   });
   autoDoneEventSetting.addEventListener("change", () => {
     chrome.storage.sync.set({ autoDoneEvent: autoDoneEventSetting.checked });
+    if (!autoDoneEventSetting.checked) {
+      // 完了フィルタをリセット
+      chrome.storage.sync.set({ eventStatus: [] });
+      chrome.storage.sync.get({ events: [] }, (data) =>
+        renderEvents(data.events)
+      );
+    }
   });
   daysSettingInput.addEventListener("change", () => {
     let v = parseInt(daysSettingInput.value, 10);
@@ -70,77 +74,129 @@ document.addEventListener("DOMContentLoaded", () => {
     chrome.storage.sync.set({ daysSetting: v });
   });
 
-  // イベント描画（未完了のもののみ表示）
+  // イベント描画
   function renderEvents(events) {
-    chrome.storage.sync.get({ done: [] }, ({ done }) => {
-      const filteredEvents = events.filter((e) => {
-        const match = e.url.match(/\bid=(\d+)/);
-        if (match) {
-          const id = Number(match[1]);
-          return !done.some((item) => item.id === id && item.status === 1);
+    if (!Array.isArray(events)) {
+      console.error("renderEvents: events is not an array", events);
+      eventsList.innerHTML = "<li>イベントデータが不正です</li>";
+      return;
+    }
+
+    chrome.storage.sync.get({ eventStatus: [] }, (res) => {
+      let eventStatus = res.eventStatus;
+      if (!Array.isArray(eventStatus)) {
+        console.warn("eventStatus is not an array", eventStatus);
+        eventStatus = [];
+      }
+
+      const filtered = events.filter((e) => {
+        if (!e || typeof e.url !== "string") {
+          console.warn("invalid event", e);
+          return false;
+        }
+        const m = e.url.match(/\bid=(\d+)/);
+        if (m) {
+          const id = Number(m[1]);
+          return !eventStatus.some(
+            (item) => item.id === id && [1, 2, 3].includes(item.status)
+          );
         }
         return true;
       });
 
-      const now = new Date();
-      const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today0 = new Date();
+      today0.setHours(0, 0, 0, 0);
 
-      eventsList.innerHTML =
-        filteredEvents && filteredEvents.length
-          ? filteredEvents
-              .map((e) => {
-                const m = e.date.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
-                let cls = "";
-                if (m) {
-                  const [_, Y, Mo, Da] = m;
-                  const eventDay = new Date(
-                    Number(Y),
-                    Number(Mo) - 1,
-                    Number(Da)
-                  );
-                  const diffDays =
-                    (eventDay.getTime() - today0.getTime()) /
-                    (1000 * 60 * 60 * 24);
-                  if (diffDays === 0 || diffDays === 1) {
-                    cls = "soon";
-                  }
-                }
-                return `
-                  <li class="${cls}" data-url="${e.url}">
+      eventsList.innerHTML = filtered.length
+        ? filtered
+            .map((e) => {
+              const m = e.date.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+              let cls = "";
+              if (m) {
+                const [_, Y, Mo, Da] = m;
+                const d = new Date(+Y, +Mo - 1, +Da);
+                const diff =
+                  (d.getTime() - today0.getTime()) / (1000 * 60 * 60 * 24);
+                if (diff === 0 || diff === 1) cls = "soon";
+              }
+              return `
+                <li data-url="${e.url}">
+                  <div class="event-info ${cls}">
                     <div class="event-date">${e.date}</div>
                     <div>${e.title}</div>
                     <div>${e.course}</div>
-                  </li>`;
-              })
-              .join("")
-          : "<li>イベントはありません</li>";
+                  </div>
+                  <div class="action-buttons">
+                    <img src="icons/check-solid.svg" alt="完了" />
+                    <img src="icons/xmark-solid.svg" alt="削除" />
+                  </div>
+                </li>`;
+            })
+            .join("")
+        : "<li>イベントはありません</li>";
     });
   }
 
-  function saveAndRender(events, lastUpdate) {
-    chrome.storage.sync.set({ events, lastUpdate }, () => {
-      renderEvents(events);
-      lastUpdateDiv.textContent = "最終更新: " + formatTimestamp(lastUpdate);
-    });
-  }
-
-  // イベントクリックで新規タブを開く
+  // イベント一覧クリック時のハンドリング
   eventsList.addEventListener("click", (e) => {
     const li = e.target.closest("li[data-url]");
     if (!li) return;
-    chrome.tabs.create({ url: li.getAttribute("data-url") });
+
+    const url = li.dataset.url;
+    const m = url.match(/\bid=(\d+)/);
+    if (!m) return;
+    const id = Number(m[1]);
+
+    // ボタン操作時
+    if (e.target.closest(".action-buttons")) {
+      const alt = e.target.getAttribute("alt");
+      let status = null;
+      if (alt === "完了") status = 2;
+      else if (alt === "削除") status = 3;
+
+      if (status !== null) {
+        chrome.storage.sync.get({ eventStatus: [] }, ({ eventStatus }) => {
+          if (
+            !eventStatus.some(
+              (item) => item.id === id && item.status === status
+            )
+          ) {
+            eventStatus.push({ id, status });
+            chrome.storage.sync.set({ eventStatus }, () => {
+              // フェードアウトアニメーション
+              li.style.transition = "opacity 0.5s";
+              li.classList.add("fade-out");
+              li.addEventListener("transitionend", () => li.remove(), {
+                once: true,
+              });
+            });
+          }
+        });
+      }
+      return;
+    }
+
+    // イベント情報クリック時は新しいタブで開く
+    chrome.tabs.create({ url });
   });
 
-  // 更新ボタン
   updateButton.addEventListener("click", () => {
     updateButton.disabled = true;
     chrome.runtime.sendMessage({ action: "fetchEvents" }, (res) => {
       if (res.success) {
-        saveAndRender(res.events, res.lastUpdate);
+        chrome.storage.sync.set(
+          { events: res.events, lastUpdate: res.lastUpdate },
+          () => {
+            renderEvents(res.events);
+            lastUpdateDiv.textContent =
+              "最終更新: " + formatTimestamp(res.lastUpdate);
+            updateButton.disabled = false;
+          }
+        );
       } else {
-        eventsList.innerHTML = `<li style="color:red">取得失敗: ${res.error}</li>`;
+        eventsList.innerHTML = `<li style=\"color:red\">取得失敗: ${res.error}</li>`;
+        updateButton.disabled = false;
       }
-      updateButton.disabled = false;
     });
   });
 });

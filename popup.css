@@ -40,7 +40,7 @@ body {
   width: 24px;
   height: 24px;
   cursor: pointer;
-  padding: 4px 4px 4px 4px;
+  padding: 4px;
 }
 
 .icon-button img {
@@ -141,33 +141,70 @@ input:focus + .slider {
 }
 
 .events-list li {
-  padding: 8px;
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin: 6px 0;
+  gap: 8px;
+}
+
+.event-info {
+  flex: 1;
+  padding: 8px;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   cursor: pointer;
+  transition: background 0.3s;
 }
 
-.events-list li:last-child {
-  border-bottom: none;
-}
-
-.events-list li:hover {
+.event-info:hover {
   background: #e5e7eb;
 }
 
-.events-list li.soon {
+/* soon クラスの適用 */
+.event-info.soon {
   background: #fff5f5;
   border: 1px solid #ffe5e5;
 }
 
-.events-list li.soon:hover {
+.event-info.soon:hover {
   background: #ffe5e5;
 }
 
 .event-date {
   font-weight: 600;
   margin-bottom: 4px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* アイコン自体のスペース確保 */
+.action-buttons img {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s, opacity 0.3s;
+}
+
+/* チェックボタンホバー時に薄い緑背景 */
+.action-buttons img:nth-child(1):hover {
+  background: #c8e6c9;
+}
+
+/* ×ボタンホバー時に薄い赤背景 */
+.action-buttons img:nth-child(2):hover {
+  background: #ffcdd2;
+}
+
+/* フェードアウト用 */
+.fade-out {
+  opacity: 0;
 }
 
 .button-container {
