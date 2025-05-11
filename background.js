@@ -35,6 +35,7 @@ async function extractEventsFromTab(tabId) {
       function formatRelativeDate(text) {
         const d = new Date();
         if (text === "今日") {
+          d.setDate(d.getDate());
         } else if (text === "明日") {
           d.setDate(d.getDate() + 1);
         } else {
@@ -89,30 +90,36 @@ async function extractEventsFromTab(tabId) {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "fetchEvents") {
-    (async () => {
-      const allEvents = [];
-      let prevTabId = null;
-      const timestamps = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() + i);
-        d.setHours(0, 0, 0, 0);
-        return Math.floor(d.getTime() / 1000);
-      });
-      for (const ts of timestamps) {
-        const url = `https://wsdmoodle.waseda.jp/calendar/view.php?view=day&time=${ts}`;
-        const tab = await new Promise((r) =>
-          chrome.tabs.create({ url, active: false }, r)
-        );
+    // 「取得する日数」を取得してからイベントをフェッチ
+    chrome.storage.sync.get({ daysSetting: 14 }, ({ daysSetting }) => {
+      (async () => {
+        const allEvents = [];
+        let prevTabId = null;
+        const timestamps = Array.from({ length: daysSetting }, (_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() + i);
+          d.setHours(0, 0, 0, 0);
+          return Math.floor(d.getTime() / 1000);
+        });
+        for (const ts of timestamps) {
+          const url = `https://wsdmoodle.waseda.jp/calendar/view.php?view=day&time=${ts}`;
+          const tab = await new Promise((r) =>
+            chrome.tabs.create({ url, active: false }, r)
+          );
+          if (prevTabId) await chrome.tabs.remove(prevTabId);
+          const { events } = await extractEventsFromTab(tab.id);
+          if (events.length) allEvents.push(...events);
+          prevTabId = tab.id;
+        }
         if (prevTabId) await chrome.tabs.remove(prevTabId);
-        const { events } = await extractEventsFromTab(tab.id);
-        if (events.length) allEvents.push(...events);
-        prevTabId = tab.id;
-      }
-      if (prevTabId) await chrome.tabs.remove(prevTabId);
-      const now = Date.now();
-      await chrome.storage.sync.set({ events: allEvents, lastUpdate: now });
-      sendResponse({ success: true, events: allEvents, lastUpdate: now });
-    })();
+        const now = Date.now();
+        await chrome.storage.sync.set({
+          events: allEvents,
+          lastUpdate: now,
+        });
+        sendResponse({ success: true, events: allEvents, lastUpdate: now });
+      })();
+    });
     return true;
   }
 });
